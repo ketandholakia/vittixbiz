@@ -1,14 +1,49 @@
--- Enable Row-Level Security on tenant-scoped tables
+-- Row-Level Security + integrity CHECK constraints for tenant-scoped tables.
+--
+-- TENANT ISOLATION NOTES (read before deploying):
+--
+-- (1) FORCE ROW LEVEL SECURITY matters. PostgreSQL bypasses RLS entirely for
+--     the table owner and for superusers unless a table is FORCE RLS'd. The
+--     default DATABASE_URL in .env.example connects as the `postgres`
+--     superuser (which also owns the tables created by migrations), so with
+--     plain `ENABLE ROW LEVEL SECURITY` the policies below are silently a
+--     no-op: every connection using that role can read/write ALL tenants'
+--     rows regardless of `app.current_org_id`. Every tenant table below is
+--     therefore FORCE RLS'd so the policies apply to the owner too.
+--
+-- (2) FORCE RLS does NOT protect against a superuser connection. Superusers
+--     always bypass RLS, FORCE or not. The app's runtime DATABASE_URL must
+--     therefore use a dedicated NON-SUPERUSER role for this isolation to
+--     matter at all — the `postgres` default is only acceptable for local
+--     dev/throwaway databases.
+--
+-- (3) Defense in depth: ideally migrations run as one role and the
+--     application runs as a separate, more restricted non-superuser role
+--     (and that app role should be granted only what it needs). FORCE RLS
+--     alone closes the owner-bypass gap even if migration and app roles are
+--     the same non-superuser role; the split is extra hardening.
+
+-- Enable AND force Row-Level Security on tenant-scoped tables
 ALTER TABLE "organizations" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "organizations" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "gstins" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "gstins" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "invoice_number_sequences" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "invoice_number_sequences" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "organization_members" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "organization_members" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "chart_of_accounts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "chart_of_accounts" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "ledger_transactions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ledger_transactions" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "ledger_entries" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "ledger_entries" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "customers" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "customers" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "invoices" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "invoices" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "invoice_line_items" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "invoice_line_items" FORCE ROW LEVEL SECURITY;
 
 -- Create policies for tenant isolation
 CREATE POLICY tenant_isolation_organizations ON "organizations"

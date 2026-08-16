@@ -39,6 +39,28 @@ VittixBiz is a fresh GST invoicing/accounting system for the Indian SMB market.
    pnpm start:dev
    ```
 
+## Security — Tenant Isolation (RLS)
+
+Multi-tenant isolation is enforced at the database layer via Row-Level
+Security. Every tenant-scoped table is `ENABLE`d **and** `FORCE`d ROW LEVEL
+SECURITY, and the request lifecycle sets `app.current_org_id` inside each
+transaction (`withTenantTransaction` in `apps/api/src/database/`) so the RLS
+policies in `apps/api/src/database/rls_and_checks.sql` filter all rows to the
+current tenant.
+
+Three things must hold for this to actually protect data in deployment:
+
+1. **The runtime `DATABASE_URL` role must NOT be a superuser.** Postgres
+   bypasses RLS for superusers (and, without `FORCE`, for the table owner).
+   `FORCE ROW LEVEL SECURITY` closes the owner-bypass gap, but superusers
+   still see everything regardless — there is no way around that in Postgres.
+2. **Don't use the `postgres` superuser default in production.** The default
+   connection string in `.env.example` is fine for local dev only.
+3. **Defense in depth:** run migrations as one role and the application as a
+   separate, more restricted non-superuser role. `FORCE RLS` alone closes the
+   owner-bypass gap even if both are the same role; the split is extra
+   hardening.
+
 ## Module Boundaries (API)
 - **AuthModule**: Handles JWT authentication.
 - **TenantModule**: Multi-tenant isolation (extracts `tenant_id` from JWT to scope queries).
