@@ -101,4 +101,79 @@ describe('TaxCalculator', () => {
     expect(cgstDecimal.plus(sgstDecimal).toString()).toBe(expectedRoundedTotal.toString());
     expect(expectedRoundedTotal.toString()).toBe('0.05');
   });
+
+  it('should apply cess as a flat add-on for intra-state supplies', () => {
+    const result = calculateGstSplit({
+      taxableAmount: new Money('100.00'),
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      ratePercent: new Decimal('18.0'),
+      cessPercent: new Decimal('10.0'),
+    });
+
+    expect(result.cgst.toString()).toBe('9.00');
+    expect(result.sgst.toString()).toBe('9.00');
+    expect(result.igst.toString()).toBe('0.00');
+    expect(result.cess.toString()).toBe('10.00');
+  });
+
+  it('should apply cess as a flat add-on for inter-state supplies', () => {
+    const result = calculateGstSplit({
+      taxableAmount: new Money('100.00'),
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '29',
+      ratePercent: new Decimal('18.0'),
+      cessPercent: new Decimal('10.0'),
+    });
+
+    expect(result.cgst.toString()).toBe('0.00');
+    expect(result.sgst.toString()).toBe('0.00');
+    expect(result.igst.toString()).toBe('18.00');
+    expect(result.cess.toString()).toBe('10.00');
+  });
+
+  it('should round cess half-up to 2 decimal places', () => {
+    // 13.55 * 10% = 1.355 -> rounds to 1.36
+    const result = calculateGstSplit({
+      taxableAmount: new Money('13.55'),
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      ratePercent: new Decimal('18.0'),
+      cessPercent: new Decimal('10.0'),
+    });
+
+    expect(result.cess.toString()).toBe('1.36');
+  });
+
+  it('should return zero cess when no cessPercent is provided', () => {
+    const result = calculateGstSplit({
+      taxableAmount: new Money('100.00'),
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      ratePercent: new Decimal('18.0'),
+    });
+
+    expect(result.cess.toString()).toBe('0.00');
+  });
+
+  it('should still apply cess on a zero-rated supply', () => {
+    // GST is 0% but cess still applies (e.g. certain exempt-with-cess goods)
+    const result = calculateGstSplit({
+      taxableAmount: new Money('100.00'),
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      ratePercent: new Decimal('0'),
+      cessPercent: new Decimal('10.0'),
+    });
+
+    expect(result.cgst.toString()).toBe('0.00');
+    expect(result.sgst.toString()).toBe('0.00');
+    expect(result.igst.toString()).toBe('0.00');
+    expect(result.cess.toString()).toBe('10.00');
+  });
 });

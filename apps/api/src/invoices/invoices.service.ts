@@ -147,6 +147,7 @@ export class InvoicesService {
         supplierStateCode: gstin.stateCode,
         placeOfSupplyStateCode: customer.placeOfSupplyStateCode,
         ratePercent,
+        cessPercent: rate.cessPercent ? new Decimal(rate.cessPercent) : undefined,
       });
 
       const intraState = gstin.stateCode === customer.placeOfSupplyStateCode;
@@ -159,11 +160,7 @@ export class InvoicesService {
       const igstAmount = new Decimal(split.igst.toString());
       const cessAmount = new Decimal(split.cess.toString());
 
-      // NOTE: pre-existing gap — calculateGstSplit() (tax-calculator.ts)
-      // does not yet accept a cessPercent input and always returns cess: 0.
-      // cessRate below is read from tax_rates.cessPercent and persisted so
-      // the schema/rollup is correct, but cessAmount/totalCess will stay 0
-      // until that calculator supports cess. Not faking a workaround here.
+      // cessRate is read from tax_rates.cess_percent for persistence/display.
       const cessRate = rate.cessPercent ? new Decimal(rate.cessPercent) : new Decimal(0);
 
       const lineTotal = taxableAmount
