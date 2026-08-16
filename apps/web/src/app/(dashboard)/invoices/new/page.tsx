@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { ApiError, customersApi, invoicesApi } from '@/lib/api-client';
@@ -227,7 +228,11 @@ export default function NewInvoicePage() {
             {!selectedGstin && gstins.length === 0 ? (
               <Alert kind="error">
                 This organization has no GSTIN yet. A GSTIN must be added
-                before invoices can be created.
+                before invoices can be created.{' '}
+                <Link href="/gstins/new" className="font-medium underline">
+                  Add a GSTIN
+                </Link>
+                .
               </Alert>
             ) : gstins.length > 1 ? (
               <Field label="Issuing GSTIN" htmlFor="gstinId">

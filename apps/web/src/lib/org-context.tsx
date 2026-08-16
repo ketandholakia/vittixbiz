@@ -39,6 +39,7 @@ interface OrgContextValue {
   selectedGstin: GstinSummary | null;
   selectGstin: (id: string) => void;
   refreshOrgs: () => Promise<void>;
+  refreshGstins: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -181,6 +182,21 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     store(GSTIN_KEY, id);
   }, []);
 
+  // Refetch the GSTIN list for the currently selected org (e.g. right after
+  // creating a new GSTIN so it shows up without a full reload).
+  const refreshGstins = useCallback(async () => {
+    if (!selectedOrg) return;
+    try {
+      const rows = await fetchGstins(selectedOrg.id);
+      setGstins(rows);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Unable to load GSTINs.'
+      );
+    }
+  }, [selectedOrg]);
+
   const value = useMemo<OrgContextValue>(
     () => ({
       orgs,
@@ -190,6 +206,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       selectedGstin,
       selectGstin,
       refreshOrgs,
+      refreshGstins,
       loading: !orgsLoaded,
       error,
     }),
@@ -201,6 +218,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       selectedGstin,
       selectGstin,
       refreshOrgs,
+      refreshGstins,
       orgsLoaded,
       error,
     ]

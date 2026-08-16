@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { db, DbTransaction } from '../database/db';
 import { gstins, organizations, organizationMembers } from '../database/schema';
+import { seedChartOfAccounts } from '../database/seed-coa';
 import { CreateOrganizationDto } from './organizations.dto';
 
 @Injectable()
@@ -64,9 +65,8 @@ export class OrganizationsService {
    * yet to scope to, so there is nothing to set `app.current_org_id` to. This
    * is the one legitimate exception to the "always tenant-scope writes" rule.
    *
-   * Follow-up (out of scope here): org creation does NOT create a GSTIN —
-   * GSTIN validation and state-code derivation from the GSTIN format are a
-   * separate, larger piece of work.
+   * GSTINs are added separately via `POST /organizations/:orgId/gstins`
+   * (gstins module) after the org exists.
    *
    * RLS interaction (see the per-command policy split in rls_and_checks.sql):
    * the INSERT policies on organizations / organization_members are
@@ -78,6 +78,9 @@ export class OrganizationsService {
    * (no SELECT-policy readback), so it only needs the WITH CHECK (true)
    * INSERT policy — its `organization_id` already matches the context set
    * above regardless.
+   *
+   * Also seeds the system chart of accounts (see seedChartOfAccounts) so the
+   * organization's ledger is usable immediately.
    */
   async create(input: CreateOrganizationDto, userId: string) {
     const organizationId = randomUUID();
@@ -108,6 +111,11 @@ export class OrganizationsService {
         userId,
         role: 'owner',
       });
+
+      // Seed the system chart of accounts so the ledger works from day one
+      // (InvoicesService.issueInvoice requires these codes to exist). Same
+      // transaction, context already set to the new org id above.
+      await seedChartOfAccounts(tx, organizationId);
 
       return org;
     });

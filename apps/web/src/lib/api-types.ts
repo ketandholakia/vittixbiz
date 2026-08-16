@@ -108,6 +108,36 @@ export interface CreateInvoiceResponse {
   invoiceNumber: string;
 }
 
+export interface Gstin {
+  id: string;
+  organizationId: string;
+  gstin: string;
+  branchName: string;
+  stateCode: string;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  pincode: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateGstinInput {
+  gstin: string;
+  branchName: string;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  pincode?: string | null;
+}
+
+export interface CreateGstinResponse extends Gstin {
+  /** Set when the GSTIN's structure is valid but our checksum calculation
+   * disagrees — a soft warning, never a rejection. */
+  checksumWarning?: string;
+}
+
 export interface EinvoiceResponse {
   irn: string;
   ackNo: string;

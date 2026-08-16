@@ -131,6 +131,7 @@ describe('OrganizationsService.create', () => {
       insert: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
       returning: jest.fn(),
+      onConflictDoNothing: jest.fn().mockReturnThis(),
     };
     db.transaction.mockImplementation(
       async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)
@@ -191,12 +192,75 @@ describe('OrganizationsService.create', () => {
     // `.returning()`, so it only needs the WITH CHECK (true) INSERT policy —
     // no SELECT-policy readback. Its organization_id matches the context set
     // above regardless.
-    expect(mockTx.insert).toHaveBeenCalledTimes(2);
+    expect(mockTx.insert).toHaveBeenCalledTimes(3);
     expect(mockTx.values.mock.calls[1][0]).toEqual({
       organizationId: orgValues.id,
       userId: USER_ID,
       role: 'owner',
     });
+
+    // COA seed (insert #3) reuses the same org id; its rows are covered by
+    // the dedicated seed test below.
+    expect(mockTx.values.mock.calls[2][0]).toHaveLength(5);
+  });
+
+  it('seeds the five system chart-of-accounts accounts in the same transaction', async () => {
+    const mockTx = stubTransaction();
+    mockTx.returning.mockResolvedValueOnce([
+      { id: 'returned-org-id', legalName: 'Acme Traders', tradeName: null },
+    ]);
+
+    const service = new OrganizationsService();
+    await service.create(
+      {
+        legalName: 'Acme Traders',
+        defaultCurrency: 'INR',
+        fiscalYearStartMonth: 4,
+      },
+      USER_ID
+    );
+
+    // Org + membership + COA seed inserts, all in one transaction.
+    expect(mockTx.insert).toHaveBeenCalledTimes(3);
+    const orgValues = mockTx.values.mock.calls[0][0];
+    expect(orgValues.id).toMatch(UUID_RE);
+
+    const coaRows = mockTx.values.mock.calls[2][0] as Array<{
+      organizationId: string;
+      code: string;
+      name: string;
+      type: string;
+      isSystemAccount: boolean;
+    }>;
+    expect(coaRows).toHaveLength(5);
+    expect(coaRows.map((row) => row.code)).toEqual([
+      '1200',
+      '4000',
+      '2610',
+      '2620',
+      '2630',
+    ]);
+    expect(coaRows.map((row) => row.name)).toEqual([
+      'Accounts Receivable',
+      'Sales',
+      'Output CGST',
+      'Output SGST',
+      'Output IGST',
+    ]);
+    expect(coaRows.map((row) => row.type)).toEqual([
+      'asset',
+      'income',
+      'liability',
+      'liability',
+      'liability',
+    ]);
+    for (const row of coaRows) {
+      expect(row.organizationId).toBe(orgValues.id);
+      expect(row.isSystemAccount).toBe(true);
+    }
+    // Idempotency guard: the seed declares ON CONFLICT DO NOTHING so re-seeding
+    // an org that already has the accounts is a safe no-op.
+    expect(mockTx.onConflictDoNothing).toHaveBeenCalledTimes(1);
   });
 
   it('applies default currency and FY start month at the DTO level when omitted', () => {

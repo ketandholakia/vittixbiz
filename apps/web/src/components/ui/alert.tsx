@@ -4,13 +4,15 @@ export function Alert({
   kind,
   children,
 }: {
-  kind: 'error' | 'success';
+  kind: 'error' | 'warning' | 'success';
   children: ReactNode;
 }) {
   const styles =
     kind === 'error'
       ? 'border-red-200 bg-red-50 text-red-700'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      : kind === 'warning'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   return (
     <div

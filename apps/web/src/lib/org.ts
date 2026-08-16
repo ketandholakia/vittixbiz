@@ -1,12 +1,14 @@
 import { apiFetch, jsonBody } from './api-client';
+import type { CreateGstinInput, CreateGstinResponse } from './api-types';
 
 /**
  * Organization / GSTIN discovery backed by the real API.
  *
- * Response shapes match apps/api/src/organizations/:
+ * Response shapes match apps/api/src/organizations/ and apps/api/src/gstins/:
+ *  - GET  /organizations/:orgId/gstins (listGstins)
+ *  - POST /organizations/:orgId/gstins (create)
  *  - GET  /me/organizations            (listForUser)
  *  - POST /organizations               (create)
- *  - GET  /organizations/:orgId/gstins (listGstins)
  */
 export interface OrgSummary {
   id: string;
@@ -39,4 +41,14 @@ export function createOrganization(input: {
 
 export function fetchGstins(orgId: string): Promise<GstinSummary[]> {
   return apiFetch<GstinSummary[]>(`/organizations/${orgId}/gstins`);
+}
+
+export function createGstin(
+  orgId: string,
+  input: CreateGstinInput
+): Promise<CreateGstinResponse> {
+  return apiFetch<CreateGstinResponse>(
+    `/organizations/${orgId}/gstins`,
+    jsonBody(input)
+  );
 }

@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * Org creation body. GSTIN creation is deliberately NOT part of this schema —
- * it requires GSTIN format validation and state-code derivation, which is a
- * separate, larger piece of work (flagged as a follow-up; not built here).
+ * it lives on its own route (`POST /organizations/:orgId/gstins`, gstins
+ * module) with full GSTIN format validation and state-code derivation.
  */
 export const createOrganizationSchema = z.object({
   legalName: z.string().min(1),

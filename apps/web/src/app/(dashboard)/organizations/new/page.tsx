@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input';
 /**
  * Minimal org creation page. Only legalName is collected — the other
  * createOrganizationSchema fields (tradeName, panNumber, defaultCurrency,
- * fiscalYearStartMonth) all have defaults on the backend. GSTIN creation is
- * out of scope (backend follow-up), so it is not offered here either.
+ * fiscalYearStartMonth) all have defaults on the backend. GSTINs are added
+ * separately afterwards via /gstins/new, so they are not offered here.
  */
 export default function NewOrganizationPage() {
   const router = useRouter();

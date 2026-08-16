@@ -10,6 +10,7 @@ import { TaxModule } from './tax/tax.module';
 import { GstnIntegrationModule } from './gstn-integration/gstn-integration.module';
 import { CustomersModule } from './customers/customers.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { GstinsModule } from './gstins/gstins.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
     GstnIntegrationModule,
     CustomersModule,
     OrganizationsModule,
+    GstinsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

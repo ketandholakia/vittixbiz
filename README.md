@@ -61,14 +61,16 @@ Build check: `pnpm --filter web build`.
   ids are persisted in `localStorage`. That's fine (they're tenant ids, not
   credentials), and the choice is now discovered from the API
   (`GET /me/organizations`, `GET /organizations/:orgId/gstins`), but there is
-  no org-switcher UI beyond a header dropdown and no GSTIN management UI.
-- **GSTIN creation is out of scope**: org creation
-  (`POST /organizations`) deliberately does NOT create a GSTIN — GSTIN
-  validation and state-code derivation are a separate, larger piece of work
-  (backend follow-up). Until then, invoice creation shows a clear message
-  when the org has no GSTIN.
-- **No chart-of-accounts / GSTIN management UI yet** — blocked on the backend
-  seed/creation work that is still pending.
+  no org-switcher UI beyond a header dropdown.
+- **GSTIN creation exists but is minimal**: `POST /organizations/:orgId/gstins`
+  (JwtAuthGuard + TenantContextGuard + `RequireRole('admin', 'accountant')`)
+  validates the GSTIN structure (GstinValidator, incl. state-code and PAN
+  checks) and stores it with a soft checksum warning — no edits/deactivation
+  UI yet. Invoice creation links to `/gstins/new` when the org has no GSTIN.
+- **Chart of accounts is seeded at org creation**: `seedChartOfAccounts`
+  inserts the five invoice-ledger accounts (`1200`, `4000`, `2610`, `2620`,
+  `2630`) as system accounts inside `POST /organizations`. No manual
+  chart-of-accounts management UI exists yet.
 
 ## Security — Tenant Isolation (RLS)
 
