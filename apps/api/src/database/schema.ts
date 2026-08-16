@@ -365,6 +365,8 @@ export const customers = pgTable(
     }).notNull(), // first 2 digits of buyer's GSTIN state, or billing state for B2C
     billingAddress: text("billing_address"),
     shippingAddress: text("shipping_address"),
+    city: varchar("city", { length: 100 }),
+    pincode: varchar("pincode", { length: 6 }),
     email: varchar("email", { length: 255 }),
     phone: varchar("phone", { length: 20 }),
     isActive: boolean("is_active").notNull().default(true),
@@ -463,6 +465,7 @@ export const invoiceLineItems = pgTable(
       .references(() => invoices.id, { onDelete: "cascade" }),
     hsnSacCode: varchar("hsn_sac_code", { length: 8 }).notNull(),
     description: text("description").notNull(),
+    unit: varchar("unit", { length: 8 }), // GSTN UQC code (e.g. NOS, KGS, MTR) — nullable for historical rows
     quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull(),
     unitPrice: numeric("unit_price", { precision: 15, scale: 2 })
       .notNull()

@@ -47,6 +47,8 @@ const customerRow = {
   placeOfSupplyStateCode: '27',
   billingAddress: '5 Buyer Lane',
   shippingAddress: null,
+  city: 'Pune',
+  pincode: '411001',
   email: 'bob@example.com',
   phone: '9000000000',
 };
@@ -56,6 +58,7 @@ const lineRow = {
   invoiceId: 'inv-1',
   hsnSacCode: '9983',
   description: 'Consulting services',
+  unit: 'NOS',
   quantity: '1',
   unitPrice: '100.00',
   discountAmount: '0.00',
@@ -132,12 +135,15 @@ describe('EinvoiceService', () => {
     expect(payload.SellerDtls.Pin).toBe(400001);
     expect(payload.SellerDtls.Stcd).toBe('27');
     expect(payload.BuyerDtls.Gstin).toBe('27BBBBB0000B1Z2');
+    expect(payload.BuyerDtls.Loc).toBe('Pune');
+    expect(payload.BuyerDtls.Pin).toBe(411001);
     expect(payload.BuyerDtls.Ph).toBe('9000000000');
     expect(payload.ItemList).toHaveLength(1);
     expect(payload.ItemList[0]).toMatchObject({
       SlNo: '1',
       IsServc: 'Y',
       HsnCd: '9983',
+      Unit: 'NOS',
       AssAmt: 100,
       GstRt: 18,
       CgstAmt: 9,
@@ -241,5 +247,24 @@ describe('EinvoiceService', () => {
     await expect(service.generateEinvoiceForInvoice(mockTx, 'inv-1')).rejects.toThrow(
       /16 characters/
     );
+  });
+
+  it('throws EinvoiceGenerationError when the customer is missing city/pincode', async () => {
+    const mockTx = createMockTx();
+    mockTx.where
+      .mockResolvedValueOnce([invoiceRow])
+      .mockResolvedValueOnce([orgRow])
+      .mockResolvedValueOnce([gstinRow])
+      .mockResolvedValueOnce([
+        { ...customerRow, city: null, pincode: null },
+      ]);
+    const adapter = { ...successAdapter } as GspAdapter;
+    const service = new EinvoiceService(adapter);
+
+    await expect(service.generateEinvoiceForInvoice(mockTx, 'inv-1')).rejects.toThrow(
+      /city\/pincode/
+    );
+    expect(adapter.generateIrn).not.toHaveBeenCalled();
+    expect(mockTx.set).not.toHaveBeenCalled();
   });
 });

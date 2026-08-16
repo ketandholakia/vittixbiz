@@ -172,8 +172,13 @@ export class EinvoiceService {
         `Customer ${customer.name} is missing billingAddress required for BuyerDtls.`
       );
     }
-    // TODO: the customers schema has no city/pincode fields, so BuyerDtls
-    // Loc/Pin are not derivable yet — add them before real GSP use.
+    const buyerLoc = customer.city;
+    const buyerPin = customer.pincode;
+    if (!buyerLoc || !buyerPin) {
+      throw new EinvoiceGenerationError(
+        `Customer ${customer.name} is missing city/pincode required for BuyerDtls.Loc/Pin.`
+      );
+    }
 
     const items: EInvoiceItem[] = lines.map((line, index) => {
       const cgstRate = new Decimal(line.cgstRate);
@@ -194,7 +199,10 @@ export class EinvoiceService {
         IsServc: isServiceByCode.get(line.hsnSacCode) ? ('Y' as const) : ('N' as const),
         HsnCd: line.hsnSacCode,
         Qty: qty.toNumber(),
-        // TODO: unit of measure is not stored per line item yet.
+        // TODO: validate line.unit against GSTN's UQC master list (e.g.
+        // 'NOS', 'KGS', 'MTR') rather than accepting free text — the UQC
+        // reference data is not loaded yet, so it passes through as-is.
+        Unit: line.unit ?? undefined,
         UnitPrice: unitPrice.toNumber(),
         TotAmt: totAmt.toNumber(),
         Discount: discountAmount.isZero() ? undefined : discountAmount.toNumber(),
@@ -253,8 +261,8 @@ export class EinvoiceService {
         Pos: customer.placeOfSupplyStateCode,
         Addr1: buyerAddress,
         Addr2: customer.shippingAddress ?? undefined,
-        // TODO: Loc/Pin for the buyer are not derivable from the current
-        // customers schema (no city/pincode fields yet).
+        Loc: buyerLoc,
+        Pin: Number(buyerPin),
         Stcd: customer.placeOfSupplyStateCode,
         Ph: customer.phone ?? undefined,
         Em: customer.email ?? undefined,

@@ -73,7 +73,7 @@ export interface EInvoiceItem {
   IsServc: 'Y' | 'N';
   HsnCd: string;
   Qty?: number;
-  /** TODO: verify Unit master values; our schema does not store a unit yet. */
+  /** UQC code (e.g. 'NOS', 'KGS', 'MTR'). TODO: validate against GSTN UQC master list. */
   Unit?: string;
   UnitPrice?: number;
   /** Unit price x quantity. */

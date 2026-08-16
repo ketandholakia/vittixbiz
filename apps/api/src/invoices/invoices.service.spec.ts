@@ -53,6 +53,7 @@ describe('InvoicesService.createInvoice', () => {
           quantity: new Decimal('2'),
           unitPrice: new Money('100.00'),
           discountAmount: new Money('0.00'),
+          unit: 'NOS',
         },
       ],
     });
@@ -72,6 +73,7 @@ describe('InvoicesService.createInvoice', () => {
     const lineValues = mockTx.values.mock.calls[2][0];
     expect(lineValues).toHaveLength(1);
     expect(lineValues[0].invoiceId).toBe('invoice-id-1');
+    expect(lineValues[0].unit).toBe('NOS');
     expect(lineValues[0].taxableAmount).toBe('200.00');
     expect(lineValues[0].cgstAmount).toBe('18.00');
     expect(lineValues[0].sgstAmount).toBe('18.00');

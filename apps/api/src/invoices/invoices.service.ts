@@ -20,6 +20,8 @@ export interface InvoiceLineItemInput {
   quantity: Decimal;
   unitPrice: Money;
   discountAmount: Money;
+  /** GSTN UQC code (e.g. 'NOS', 'KGS', 'MTR') — optional free text for now. */
+  unit?: string;
 }
 
 export interface CreateInvoiceInput {
@@ -49,6 +51,7 @@ export const INVOICE_COA_CODES = {
 interface ComputedLineItem {
   hsnSacCode: string;
   description: string;
+  unit?: string;
   quantity: string;
   unitPrice: string;
   discountAmount: string;
@@ -178,6 +181,7 @@ export class InvoicesService {
       computedLines.push({
         hsnSacCode: line.hsnSacCode,
         description: line.description,
+        unit: line.unit ?? undefined,
         quantity: line.quantity.toString(),
         unitPrice: line.unitPrice.toString(),
         discountAmount: line.discountAmount.toString(),
