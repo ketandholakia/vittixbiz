@@ -62,6 +62,14 @@ export const userRoleEnum = pgEnum("user_role", [
   "viewer",
 ]);
 
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "issued",
+  "paid",
+  "partially_paid",
+  "cancelled",
+]);
+
 // ---------------------------------------------------------------------------
 // ORGANIZATIONS (Tenants)
 // ---------------------------------------------------------------------------
@@ -340,6 +348,162 @@ export const taxRates = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// CUSTOMERS — B2B and B2C buyers
+// ---------------------------------------------------------------------------
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    gstin: varchar("gstin", { length: 15 }), // null for B2C sales
+    placeOfSupplyStateCode: varchar("place_of_supply_state_code", {
+      length: 2,
+    }).notNull(), // first 2 digits of buyer's GSTIN state, or billing state for B2C
+    billingAddress: text("billing_address"),
+    shippingAddress: text("shipping_address"),
+    email: varchar("email", { length: 255 }),
+    phone: varchar("phone", { length: 20 }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    orgIdx: index("customers_org_idx").on(table.organizationId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// INVOICES — header of a GST invoice document
+// ---------------------------------------------------------------------------
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    gstinId: uuid("gstin_id")
+      .notNull()
+      .references(() => gstins.id, { onDelete: "restrict" }), // issuing branch
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(), // formatted string from InvoiceNumberingService
+    financialYear: varchar("financial_year", { length: 9 }).notNull(), // e.g. "2026-27"
+    invoiceDate: timestamp("invoice_date", { withTimezone: true }).notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    status: invoiceStatusEnum("status").notNull().default("draft"),
+    subtotal: numeric("subtotal", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    totalCgst: numeric("total_cgst", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    totalSgst: numeric("total_sgst", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    totalIgst: numeric("total_igst", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    totalCess: numeric("total_cess", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    totalAmount: numeric("total_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    ledgerTransactionId: uuid("ledger_transaction_id").references(
+      () => ledgerTransactions.id,
+      { onDelete: "set null" }
+    ), // set once the invoice is posted to the ledger
+    irnNumber: varchar("irn_number", { length: 64 }), // e-invoice IRN (Phase 4)
+    irnAckNo: varchar("irn_ack_no", { length: 64 }),
+    irnAckDate: timestamp("irn_ack_date", { withTimezone: true }),
+    qrCodeData: text("qr_code_data"), // serialized QR payload (Phase 4)
+    notes: text("notes"),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    orgDateIdx: index("invoices_org_date_idx").on(
+      table.organizationId,
+      table.invoiceDate
+    ),
+    numberUnique: uniqueIndex("invoices_org_number_unique").on(
+      table.organizationId,
+      table.invoiceNumber
+    ),
+    gstinIdx: index("invoices_gstin_idx").on(table.gstinId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// INVOICE LINE ITEMS — one row per HSN/SAC line on an invoice
+// ---------------------------------------------------------------------------
+
+export const invoiceLineItems = pgTable(
+  "invoice_line_items",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    hsnSacCode: varchar("hsn_sac_code", { length: 8 }).notNull(),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 15, scale: 3 }).notNull(),
+    unitPrice: numeric("unit_price", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    discountAmount: numeric("discount_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    taxableAmount: numeric("taxable_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    cgstRate: numeric("cgst_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    cgstAmount: numeric("cgst_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    sgstRate: numeric("sgst_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    sgstAmount: numeric("sgst_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    igstRate: numeric("igst_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    igstAmount: numeric("igst_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    lineTotal: numeric("line_total", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    invoiceIdx: index("invoice_line_items_invoice_idx").on(table.invoiceId),
+  })
+);
+
+// ---------------------------------------------------------------------------
 // RELATIONS (Drizzle relational query support)
 // ---------------------------------------------------------------------------
 
@@ -378,3 +542,41 @@ export const ledgerEntriesRelations = relations(ledgerEntries, ({ one }) => ({
     references: [chartOfAccounts.id],
   }),
 }));
+
+export const customersRelations = relations(customers, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [customers.organizationId],
+    references: [organizations.id],
+  }),
+  invoices: many(invoices),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [invoices.organizationId],
+    references: [organizations.id],
+  }),
+  gstin: one(gstins, {
+    fields: [invoices.gstinId],
+    references: [gstins.id],
+  }),
+  customer: one(customers, {
+    fields: [invoices.customerId],
+    references: [customers.id],
+  }),
+  ledgerTransaction: one(ledgerTransactions, {
+    fields: [invoices.ledgerTransactionId],
+    references: [ledgerTransactions.id],
+  }),
+  lineItems: many(invoiceLineItems),
+}));
+
+export const invoiceLineItemsRelations = relations(
+  invoiceLineItems,
+  ({ one }) => ({
+    invoice: one(invoices, {
+      fields: [invoiceLineItems.invoiceId],
+      references: [invoices.id],
+    }),
+  })
+);
