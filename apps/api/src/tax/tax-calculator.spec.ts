@@ -76,4 +76,29 @@ describe('TaxCalculator', () => {
     expect(result.sgst.toString()).toBe('0.00');
     expect(result.igst.toString()).toBe('2.44');
   });
+
+  it('should ensure cgst and sgst perfectly reconcile to the rounded total liability', () => {
+    // 0.27777... * 18% = 0.05
+    // Halved it is 0.025 each. If rounded independently, both become 0.03 (sum = 0.06 instead of 0.05).
+    // Our fix ensures one is 0.03 and the other is 0.02, summing to 0.05.
+    const taxableAmount = new Money('0.28'); // 0.28 * 18% = 0.0504 -> 0.05
+    const ratePercent = new Decimal('18.0');
+    
+    const result = calculateGstSplit({
+      taxableAmount,
+      hsnSacCode: '9983',
+      supplierStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      ratePercent,
+    });
+    
+    const exactTotalTax = new Decimal(taxableAmount.toString()).times(ratePercent.dividedBy(100));
+    const expectedRoundedTotal = exactTotalTax.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    
+    const cgstDecimal = new Decimal(result.cgst.toString());
+    const sgstDecimal = new Decimal(result.sgst.toString());
+    
+    expect(cgstDecimal.plus(sgstDecimal).toString()).toBe(expectedRoundedTotal.toString());
+    expect(expectedRoundedTotal.toString()).toBe('0.05');
+  });
 });

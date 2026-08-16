@@ -22,7 +22,6 @@ describe('InvoiceNumberingService', () => {
   it('should format the invoice number correctly and start at 1', async () => {
     // Mock the Drizzle transaction behavior for an UPSERT
     const mockTx = {
-      sql: (strings: any, ...values: any[]) => `${strings[0]}${values[0]}${strings[1]}`,
       insert: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
       onConflictDoUpdate: jest.fn().mockReturnThis(),
@@ -43,7 +42,6 @@ describe('InvoiceNumberingService', () => {
   it('should format subsequent numbers correctly', async () => {
     // Mock the Drizzle transaction behavior for an UPSERT
     const mockTx = {
-      sql: (strings: any, ...values: any[]) => `${strings[0]}${values[0]}${strings[1]}`,
       insert: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
       onConflictDoUpdate: jest.fn().mockReturnThis(),

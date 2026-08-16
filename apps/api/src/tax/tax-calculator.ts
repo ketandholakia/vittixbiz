@@ -35,13 +35,18 @@ export function calculateGstSplit(input: GstSplitInput): GstSplitResult {
   // Intra-state vs Inter-state
   if (supplierStateCode === placeOfSupplyStateCode) {
     // Intra-state: Split 50/50
-    // We round at the final step: HALF_UP
-    const halfTax = totalTaxAmount.dividedBy(2).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-    const halfMoney = new Money(halfTax);
+    // Round total tax to 2 decimal places first to get the exact total liability
+    const roundedTotal = totalTaxAmount.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    
+    // Then derive CGST by halving the exact total (rounding that half up to 2 places)
+    const cgstDecimal = roundedTotal.dividedBy(2).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    
+    // Derive SGST as remainder to ensure CGST + SGST perfectly reconciles to roundedTotal
+    const sgstDecimal = roundedTotal.minus(cgstDecimal);
 
     return {
-      cgst: halfMoney,
-      sgst: halfMoney,
+      cgst: new Money(cgstDecimal),
+      sgst: new Money(sgstDecimal),
       igst: zero,
       cess: zero,
     };

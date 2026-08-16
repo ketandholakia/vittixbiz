@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { invoiceNumberSequences } from '../database/schema';
 import { PgTransaction } from 'drizzle-orm/pg-core';
 // Drizzle transaction type can vary based on driver (node-postgres, postgres.js, etc.)
@@ -49,7 +49,7 @@ export class InvoiceNumberingService {
           invoiceNumberSequences.documentType,
         ],
         set: {
-          lastNumber: tx.sql`${invoiceNumberSequences.lastNumber} + 1`,
+          lastNumber: sql`${invoiceNumberSequences.lastNumber} + 1`,
           updatedAt: new Date(),
         },
       })

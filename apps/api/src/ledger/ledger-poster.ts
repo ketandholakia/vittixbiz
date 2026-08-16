@@ -1,6 +1,7 @@
 import { Money } from '@vittixbiz/shared-types';
 import { ledgerTransactions, ledgerEntries } from '../database/schema';
 import Decimal from 'decimal.js';
+import { eq } from 'drizzle-orm';
 
 export type DbTransaction = any; // Representing a Drizzle transaction object
 
@@ -107,7 +108,7 @@ export class LedgerPoster {
   static async reverse(tx: DbTransaction, transactionId: string, narration: string, createdByUserId?: string): Promise<{ transactionId: string }> {
     // 1. Fetch original transaction
     const originalTxnRows = await tx.select().from(ledgerTransactions).where(
-      (ledgerTransactions: any, { eq }: any) => eq(ledgerTransactions.id, transactionId)
+      eq(ledgerTransactions.id, transactionId)
     );
 
     if (originalTxnRows.length === 0) {
@@ -118,7 +119,7 @@ export class LedgerPoster {
 
     // 2. Fetch original lines
     const originalEntries = await tx.select().from(ledgerEntries).where(
-      (ledgerEntries: any, { eq }: any) => eq(ledgerEntries.transactionId, transactionId)
+      eq(ledgerEntries.transactionId, transactionId)
     );
 
     if (originalEntries.length === 0) {
@@ -157,7 +158,7 @@ export class LedgerPoster {
     await tx.update(ledgerTransactions).set({
       reversalOfTransactionId: originalTxn.id,
     }).where(
-      (ledgerTransactions: any, { eq }: any) => eq(ledgerTransactions.id, newTxnId)
+      eq(ledgerTransactions.id, newTxnId)
     );
 
     return { transactionId: newTxnId };
