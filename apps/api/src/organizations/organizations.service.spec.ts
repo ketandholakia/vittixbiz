@@ -25,9 +25,9 @@ const UUID_RE =
  * context to scope to. listGstins receives the tx from withTenantTransaction
  * like every other tenant-scoped service method.
  *
- * KNOWN TESTING GAP (why this suite cannot validate the RLS fix): the whole
- * `create` flow is mocked, so the PostgreSQL RLS behavior behind it is never
- * exercised here. Specifically:
+ * KNOWN TESTING GAP (why this suite cannot validate the RLS fixes): the whole
+ * `create` and `listForUser` flows are mocked, so the PostgreSQL RLS behavior
+ * behind them is never exercised here. Specifically:
  *   - Postgres requires a newly inserted row to satisfy the table's SELECT
  *     policy for RETURNING to work (RETURNING reads the row back). The
  *     service pre-generates the org id and sets `app.current_org_id` to it
@@ -38,14 +38,18 @@ const UUID_RE =
  *     the combined `= current_setting(...)` policies that work for every
  *     other table would reject the write. This split lives in
  *     rls_and_checks.sql and is also not exercised here.
+ *   - listForUser() sets `app.current_user_id` (a separate GUC) that additive
+ *     user-keyed SELECT policies are keyed on; that those OR-combine with the
+ *     org-scoped policies on a real server is not exercised here.
  *   - FORCE RLS only bites non-superuser connections, so this class of bug
  *     also does not surface under the local `postgres` superuser default.
  *
  * To catch these you need a real DB-backed integration test (testcontainers
  * or similar): apply the drizzle migrations + rls_and_checks.sql, connect as
  * a non-superuser role, POST an org, and assert the returned row + a
- * subsequent scoped read. Until that exists, the order assertions below are
- * the best a mocked unit test can offer.
+ * subsequent scoped read + the unscoped /me/organizations read. Until that
+ * exists, the order assertions below are the best a mocked unit test can
+ * offer.
  */
 describe('OrganizationsService.listForUser', () => {
   beforeEach(() => {
@@ -53,16 +57,23 @@ describe('OrganizationsService.listForUser', () => {
   });
 
   function stubListQuery(rows: unknown[]) {
+    const mockTx = {
+      execute: jest.fn().mockResolvedValue(undefined),
+      select: jest.fn(),
+    };
     const mockWhere = jest.fn().mockResolvedValue(rows);
-    db.select.mockReturnValue({
+    mockTx.select.mockReturnValue({
       from: jest.fn().mockReturnValue({
         innerJoin: jest.fn().mockReturnValue({ where: mockWhere }),
       }),
     });
-    return mockWhere;
+    db.transaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)
+    );
+    return { mockTx, mockWhere };
   }
 
-  it('returns the organizations the user belongs to, with role', async () => {
+  it('sets app.current_user_id before running the membership query', async () => {
     const rows = [
       {
         id: 'org-1',
@@ -77,24 +88,35 @@ describe('OrganizationsService.listForUser', () => {
         role: 'admin',
       },
     ];
-    const mockWhere = stubListQuery(rows);
+    const { mockTx, mockWhere } = stubListQuery(rows);
 
     const service = new OrganizationsService();
     const result = await service.listForUser(USER_ID);
 
     expect(result).toEqual(rows);
-    expect(db.select).toHaveBeenCalledTimes(1);
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+
+    // The user GUC is set BEFORE the select — the additive user-keyed
+    // permissive policies OR'd into the query need it. Mocked here; the real
+    // Postgres side is documented in the KNOWN TESTING GAP note above.
+    expect(mockTx.execute).toHaveBeenCalledTimes(1);
+    const sqlJson = JSON.stringify(mockTx.execute.mock.calls[0][0]);
+    expect(sqlJson).toContain('set_config');
+    expect(sqlJson).toContain('app.current_user_id');
+    expect(mockTx.execute.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTx.select.mock.invocationCallOrder[0]
+    );
     expect(mockWhere).toHaveBeenCalledTimes(1);
   });
 
   it('returns an empty list when the user has no memberships', async () => {
-    stubListQuery([]);
+    const { mockTx } = stubListQuery([]);
 
     const service = new OrganizationsService();
     const result = await service.listForUser(USER_ID);
 
     expect(result).toEqual([]);
-    expect(db.transaction).not.toHaveBeenCalled();
+    expect(mockTx.select).toHaveBeenCalledTimes(1);
   });
 });
 

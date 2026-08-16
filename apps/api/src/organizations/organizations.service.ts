@@ -10,26 +10,50 @@ export class OrganizationsService {
   /**
    * Lists the organizations the user belongs to, with their role.
    *
-   * Intentionally NOT tenant-scoped: this is the route that RESOLVES which
-   * org the user should scope to in the first place, so there is no single
-   * org context to apply. A plain query filtered by the membership row is
-   * correct here; RLS still applies via the connection's default role, but
-   * this specific query's job is to discover tenancy, not to sit inside it.
+   * This is the SECOND (and only other) legitimate exception to "every route
+   * needs tenant context" — the first being create(). It is intentionally NOT
+   * org-scoped: its job is to RESOLVE which org(s) the caller belongs to, and
+   * a user can belong to several, so there is no single `app.current_org_id`
+   * to apply.
+   *
+   * RLS interaction (see the self-membership policies in rls_and_checks.sql):
+   * the org-scoped SELECT policies match NOTHING when `app.current_org_id` is
+   * unset — current_setting(..., true) yields NULL, so an unscoped read
+   * returns zero rows for EVERY user under FORCE RLS. This route therefore
+   * sets `app.current_user_id` (a separate GUC) instead, which the additive
+   * user-keyed policies are keyed on. It runs in its own transaction because
+   * it is NOT going through withTenantTransaction (which sets the ORG GUC,
+   * not this one); the same set_config(...) pattern as create() applies.
+   *
+   * Trust model: like app.current_org_id, app.current_user_id is only ever
+   * set here from the authenticated JWT's userId, never from client input.
+   *
+   * KNOWN TESTING GAP: mocked unit tests cannot prove any of the above — the
+   * OR-combined permissive policies under a non-superuser connection only
+   * surface against a real Postgres instance. Verify with a DB-backed
+   * integration test; see tenant-transaction.spec.ts for the same documented
+   * gap.
    */
   async listForUser(userId: string) {
-    return db
-      .select({
-        id: organizations.id,
-        legalName: organizations.legalName,
-        tradeName: organizations.tradeName,
-        role: organizationMembers.role,
-      })
-      .from(organizationMembers)
-      .innerJoin(
-        organizations,
-        eq(organizations.id, organizationMembers.organizationId)
-      )
-      .where(eq(organizationMembers.userId, userId));
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('app.current_user_id', ${userId}, true)`
+      );
+
+      return tx
+        .select({
+          id: organizations.id,
+          legalName: organizations.legalName,
+          tradeName: organizations.tradeName,
+          role: organizationMembers.role,
+        })
+        .from(organizationMembers)
+        .innerJoin(
+          organizations,
+          eq(organizations.id, organizationMembers.organizationId)
+        )
+        .where(eq(organizationMembers.userId, userId));
+    });
   }
 
   /**

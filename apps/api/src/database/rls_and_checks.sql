@@ -115,6 +115,48 @@ CREATE POLICY tenant_isolation_organization_members_insert ON "organization_memb
   FOR INSERT
   WITH CHECK (true);
 
+-- ── Self-membership SELECT policies (user-keyed, ADDITIVE) ──────────────────
+--
+-- organizations and organization_members are the ONLY tables queried before
+-- a single org context exists: listForUser() resolves which orgs a user
+-- belongs to, and a user can belong to several, so no single
+-- `app.current_org_id` can be set for it. Under FORCE RLS, the org-scoped
+-- SELECT policies above match NOTHING when the setting is absent —
+-- current_setting('app.current_org_id', true) yields NULL, and NULL = NULL
+-- is not true — so an unscoped read returns zero rows for EVERY user
+-- (single-org and multi-org alike). That is exactly what GET /me/organizations
+-- returned under a non-superuser connection.
+--
+-- These two policies are keyed on user identity instead and are purely
+-- ADDITIVE: Postgres OR-combines multiple permissive policies for the same
+-- table/command, so org-scoped queries (app.current_org_id set) are
+-- completely unaffected, and the unscoped membership query (app.current_user_id
+-- set) now matches. listForUser() sets `app.current_user_id` via
+-- set_config(..., true) inside its own transaction — same trust model as
+-- app.current_org_id: the value comes only from the authenticated JWT, never
+-- from client input. (The organizations policy's subquery reads
+-- organization_members without RLS applied — policy expressions are evaluated
+-- with the table owner's privileges — which is what lets it see all
+-- membership rows regardless of FORCE RLS.)
+--
+-- Only these two tables need this: they are the only ones read before an org
+-- context exists — the same reasoning as the per-command policy split above.
+--
+-- KNOWN TESTING GAP: this OR-combination behavior (and the empty-result bug
+-- it fixes) only shows up against a real Postgres server under a
+-- non-superuser connection with FORCE RLS. It cannot be validated by mocked
+-- unit tests; verify with a DB-backed integration test.
+CREATE POLICY self_membership_select ON organization_members
+  FOR SELECT
+  USING (user_id = current_setting('app.current_user_id', true)::uuid);
+
+CREATE POLICY self_membership_org_select ON organizations
+  FOR SELECT
+  USING (id IN (
+    SELECT organization_id FROM organization_members
+    WHERE user_id = current_setting('app.current_user_id', true)::uuid
+  ));
+
 CREATE POLICY tenant_isolation_gstins ON "gstins"
   USING (organization_id = current_setting('app.current_org_id', true)::uuid);
 
