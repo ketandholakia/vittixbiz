@@ -1,10 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { invoiceNumberSequences } from '../database/schema';
-import { PgTransaction } from 'drizzle-orm/pg-core';
-// Drizzle transaction type can vary based on driver (node-postgres, postgres.js, etc.)
-// For pg, we can define a generic type alias that extracts the transaction type.
-// But we can also use any for now or a generic T extends PgTransaction<any, any, any>.
-export type DbTransaction = any; 
+import type { DbTransaction } from '../database/db'; 
 
 export interface GetNextNumberInput {
   gstinId: string;

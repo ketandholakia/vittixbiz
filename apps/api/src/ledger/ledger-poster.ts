@@ -2,8 +2,7 @@ import { Money } from '@vittixbiz/shared-types';
 import { ledgerTransactions, ledgerEntries } from '../database/schema';
 import Decimal from 'decimal.js';
 import { eq } from 'drizzle-orm';
-
-export type DbTransaction = any; // Representing a Drizzle transaction object
+import type { DbTransaction } from '../database/db';
 
 export class UnbalancedJournalError extends Error {
   constructor(message: string) {
@@ -142,10 +141,10 @@ export class LedgerPoster {
     // 4. Create new input
     const input: PostJournalInput = {
       organizationId: originalTxn.organizationId,
-      gstinId: originalTxn.gstinId,
+      gstinId: originalTxn.gstinId ?? undefined,
       transactionDate: new Date(), // Reversal happens now
       sourceType: 'reversal',
-      sourceId: originalTxn.sourceId, // Link to same source doc if applicable
+      sourceId: originalTxn.sourceId ?? undefined, // Link to same source doc if applicable
       narration: narration,
       createdByUserId: createdByUserId,
       lines: reversedLines,
