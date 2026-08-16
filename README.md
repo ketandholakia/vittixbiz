@@ -94,6 +94,48 @@ Three things must hold for this to actually protect data in deployment:
    owner-bypass gap even if both are the same role; the split is extra
    hardening.
 
+## Production setup (database roles)
+
+Tenant isolation via RLS only protects data when the app connects as a
+NON-SUPERUSER role (see the RLS section above) — the `postgres` default in
+`.env.example` is local-dev only. Creating that role is now a runnable,
+idempotent step (`apps/api/src/database/setup-db.ts`, invoked via
+`pnpm db:setup-app-role`):
+
+1. Apply migrations as the admin/owner role (the role in `ADMIN_DATABASE_URL`):
+   ```bash
+   cd apps/api
+   pnpm db:generate
+   pnpm db:push
+   ```
+2. Create/ensure the restricted application role — once per environment, by
+   hand. Never wire this into `pnpm install` or app startup: it connects as
+   admin, which is exactly the privilege level the app must not run with, and
+   an accidental run against the wrong database is a real footgun.
+   ```bash
+   cd apps/api
+   ADMIN_DATABASE_URL='postgres://postgres:postgres@localhost:5432/vittixbiz' \
+   APP_DB_ROLE='vittixbiz_app' \
+   pnpm db:setup-app-role
+   ```
+   - If `APP_DB_PASSWORD` is omitted and the role doesn't exist yet, the
+     script generates a strong random password and prints it ONCE — copy it
+     into the app `.env`. Re-runs are safe: an existing role's password is
+     left untouched unless `APP_DB_PASSWORD` is provided.
+   - The script grants CONNECT / schema USAGE / DML on existing tables /
+     USAGE+SELECT on sequences, and sets `ALTER DEFAULT PRIVILEGES` so
+     tables and sequences created by future migrations are automatically
+     usable by the app role too.
+   - It prints the resulting `DATABASE_URL` for copying — it never writes a
+     file, to avoid accidentally committing a secret.
+3. Point the app at that role in `apps/api/.env`:
+   ```
+   DATABASE_URL='postgres://vittixbiz_app:<password>@localhost:5432/vittixbiz'
+   ```
+
+`ADMIN_DATABASE_URL`, `APP_DB_ROLE` and `APP_DB_PASSWORD` are only needed to
+run this script — the app itself never reads them (see `apps/api/.env.example`).
+
 ## Module Boundaries (API)
 - **AuthModule**: Handles JWT authentication.
 - **TenantModule**: Multi-tenant isolation (extracts `tenant_id` from JWT to scope queries).
