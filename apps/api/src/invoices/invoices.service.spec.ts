@@ -201,6 +201,52 @@ describe('InvoicesService.createInvoice', () => {
     expect(lineValues[0].lineTotal).toBe('118.00');
   });
 
+  it('persists cess rate from the tax rate row and rolls cess into totals', async () => {
+    // A cess-bearing HSN/SAC (e.g. tobacco, luxury goods).
+    const cessTaxRateRow = {
+      ...taxRateRow,
+      cessPercent: '10.00',
+    };
+
+    const mockTx = createMockTx();
+    mockTx.where
+      .mockResolvedValueOnce([gstinRow])
+      .mockResolvedValueOnce([customerIntraRow])
+      .mockResolvedValueOnce([cessTaxRateRow]);
+    mockTx.returning
+      .mockResolvedValueOnce([{ lastNumber: 5 }])
+      .mockResolvedValueOnce([{ id: 'invoice-id-5' }]);
+
+    await InvoicesService.createInvoice(mockTx, {
+      organizationId: 'org-1',
+      gstinId: 'gstin-1',
+      customerId: 'cust-1',
+      invoiceDate: new Date('2026-07-01T00:00:00Z'),
+      lineItems: [
+        {
+          hsnSacCode: '9983',
+          description: 'Cess-bearing goods',
+          quantity: new Decimal('1'),
+          unitPrice: new Money('100.00'),
+          discountAmount: new Money('0.00'),
+        },
+      ],
+    });
+
+    const invoiceValues = mockTx.values.mock.calls[1][0];
+    const lineValues = mockTx.values.mock.calls[2][0];
+
+    // cessRate is read from tax_rates.cess_percent and persisted...
+    expect(lineValues[0].cessRate).toBe('10.00');
+    // ...but cessAmount and totalCess stay 0: calculateGstSplit() never
+    // returns non-zero cess because it does not accept a cessPercent input
+    // (pre-existing gap in tax-calculator.ts — flagged, not worked around).
+    expect(lineValues[0].cessAmount).toBe('0.00');
+    expect(invoiceValues.totalCess).toBe('0.00');
+    // totalAmount still reconciles: subtotal + cgst + sgst + igst + cess
+    expect(invoiceValues.totalAmount).toBe('118.00');
+  });
+
   it('throws when no tax rate is effective for the invoice date', async () => {
     const mockTx = createMockTx();
     mockTx.where

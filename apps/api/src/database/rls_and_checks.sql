@@ -63,5 +63,5 @@ ALTER TABLE "invoices" ADD CONSTRAINT check_invoice_totals
 -- Line item total must reconcile: line_total = taxable + all taxes
 ALTER TABLE "invoice_line_items" ADD CONSTRAINT check_invoice_line_totals
   CHECK (
-    line_total = taxable_amount + cgst_amount + sgst_amount + igst_amount
+    line_total = taxable_amount + cgst_amount + sgst_amount + igst_amount + cess_amount
   );

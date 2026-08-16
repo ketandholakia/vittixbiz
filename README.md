@@ -20,6 +20,12 @@ VittixBiz is a fresh GST invoicing/accounting system for the Indian SMB market.
 
 1. Make sure you have `pnpm` installed.
 2. Run `pnpm install` in the root directory.
+   - In network-restricted environments (CI, sandboxes), Puppeteer's
+     postinstall tries to download Chromium and fails — run
+     `PUPPETEER_SKIP_DOWNLOAD=true pnpm install` instead. If the API needs to
+     render PDFs at runtime, install Chromium separately first
+     (`npx puppeteer browsers install chrome`) or point
+     `PUPPETEER_EXECUTABLE_PATH` at a system Chromium binary.
 3. Configure your `DATABASE_URL` in `.env` (default is `postgres://postgres:postgres@localhost:5432/vittixbiz`).
 4. Apply database migrations:
    ```bash

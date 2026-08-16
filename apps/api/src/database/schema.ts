@@ -491,6 +491,12 @@ export const invoiceLineItems = pgTable(
     igstAmount: numeric("igst_amount", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),
+    cessRate: numeric("cess_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    cessAmount: numeric("cess_amount", { precision: 15, scale: 2 })
+      .notNull()
+      .default("0"),
     lineTotal: numeric("line_total", { precision: 15, scale: 2 })
       .notNull()
       .default("0"),

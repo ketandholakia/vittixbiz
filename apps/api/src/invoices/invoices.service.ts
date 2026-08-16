@@ -59,6 +59,8 @@ interface ComputedLineItem {
   sgstAmount: string;
   igstRate: string;
   igstAmount: string;
+  cessRate: string;
+  cessAmount: string;
   lineTotal: string;
 }
 
@@ -107,6 +109,7 @@ export class InvoicesService {
     let totalCgst = new Decimal(0);
     let totalSgst = new Decimal(0);
     let totalIgst = new Decimal(0);
+    let totalCess = new Decimal(0);
 
     const computedLines: ComputedLineItem[] = [];
 
@@ -156,6 +159,13 @@ export class InvoicesService {
       const igstAmount = new Decimal(split.igst.toString());
       const cessAmount = new Decimal(split.cess.toString());
 
+      // NOTE: pre-existing gap — calculateGstSplit() (tax-calculator.ts)
+      // does not yet accept a cessPercent input and always returns cess: 0.
+      // cessRate below is read from tax_rates.cessPercent and persisted so
+      // the schema/rollup is correct, but cessAmount/totalCess will stay 0
+      // until that calculator supports cess. Not faking a workaround here.
+      const cessRate = rate.cessPercent ? new Decimal(rate.cessPercent) : new Decimal(0);
+
       const lineTotal = taxableAmount
         .plus(cgstAmount)
         .plus(sgstAmount)
@@ -166,6 +176,7 @@ export class InvoicesService {
       totalCgst = totalCgst.plus(cgstAmount);
       totalSgst = totalSgst.plus(sgstAmount);
       totalIgst = totalIgst.plus(igstAmount);
+      totalCess = totalCess.plus(cessAmount);
 
       computedLines.push({
         hsnSacCode: line.hsnSacCode,
@@ -180,11 +191,12 @@ export class InvoicesService {
         sgstAmount: sgstAmount.toFixed(2),
         igstRate: igstRate.toFixed(2),
         igstAmount: igstAmount.toFixed(2),
+        cessRate: cessRate.toFixed(2),
+        cessAmount: cessAmount.toFixed(2),
         lineTotal: lineTotal.toFixed(2),
       });
     }
 
-    const totalCess = new Decimal(0);
     const totalAmount = subtotal
       .plus(totalCgst)
       .plus(totalSgst)
