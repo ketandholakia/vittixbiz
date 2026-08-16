@@ -29,6 +29,18 @@ const ORG_UUID = '11111111-2222-3333-4444-555555555555';
  * rows scoped to `app.current_org_id`. Until that exists, every new query
  * built with the `sql` tag should be treated as untrusted-at-runtime.
  *
+ * SECOND KNOWN TESTING GAP (connection reuse): a single isolated transaction
+ * test cannot catch the custom-GUC placeholder quirk either. Custom GUCs
+ * (app.current_org_id / app.current_user_id) are session-scoped placeholders:
+ * after a set_config(..., true) LOCAL scope ends, the variable reverts to an
+ * EMPTY STRING, not to "unset". On a LATER reuse of the same pooled physical
+ * connection, current_setting('app.x', true) returns '' — and ''::uuid throws
+ * (invalid input syntax for type uuid) instead of matching nothing. This only
+ * surfaces when a connection is REUSED across transactions where an earlier
+ * one set the GUC. rls_and_checks.sql therefore wraps every such cast in
+ * NULLIF(..., '')::uuid; verify against a real pool by setting context,
+ * committing, then running an unscoped query on the same connection.
+ *
  * What IS verified here against the mock:
  *  - the context-setter (set_config) runs FIRST in the transaction,
  *  - the org id is parameter-bound (never string-concatenated),

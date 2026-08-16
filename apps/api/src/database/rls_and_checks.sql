@@ -22,6 +22,36 @@
 --     (and that app role should be granted only what it needs). FORCE RLS
 --     alone closes the owner-bypass gap even if migration and app roles are
 --     the same non-superuser role; the split is extra hardening.
+--
+-- (4) CONNECTION-POOLING QUIRK — custom GUC placeholders revert to '' not NULL.
+--     `app.current_org_id` / `app.current_user_id` are custom GUCs, which
+--     Postgres treats as session-scoped placeholders. The FIRST time
+--     set_config('app.x', ..., true) runs on a physical connection, the
+--     placeholder is created; when the LOCAL (transaction) scope ends, the
+--     variable does NOT revert to "unset" — it reverts to an EMPTY STRING.
+--     On a LATER reuse of that same pooled connection, current_setting('app.x', true)
+--     therefore returns '' instead of NULL, and ''::uuid THROWS
+--     (invalid input syntax for type uuid) instead of safely matching nothing.
+--     With a pg.Pool, ANY connection that has ever handled a tenant-scoped
+--     request (i.e. ever called set_config for app.current_org_id) will 500
+--     on a later request that does not set a fresh value — this would break
+--     EVERY tenant_isolation_* policy, not just the org-discovery ones.
+--     Every current_setting(...)::uuid below is therefore wrapped in
+--     NULLIF(..., '')::uuid to normalize '' back to NULL (which compares
+--     false, never errors). Do NOT add a policy with a bare
+--     `current_setting(...)::uuid` cast — keep the NULLIF wrapper.
+--
+-- (5) KNOWN TESTING GAP (connection reuse): the ''-instead-of-NULL quirk in
+--     (4) only surfaces when a single physical connection is REUSED across
+--     multiple transactions where the first one called set_config for the
+--     GUC. A single isolated transaction — even against a real Postgres —
+--     cannot reproduce it, because the placeholder is only "born" on the
+--     second and later use of a given connection. Validation requires
+--     exercising a shared connection pool across several requests: set
+--     context, commit, then run an unscoped query on the same pooled
+--     connection and assert it returns rows instead of throwing. This class
+--     of bug is invisible to mocked unit tests (see tenant-transaction.spec.ts
+--     for the same documented gap).
 
 -- Enable AND force Row-Level Security on tenant-scoped tables
 ALTER TABLE "organizations" ENABLE ROW LEVEL SECURITY;
@@ -83,16 +113,16 @@ DROP POLICY IF EXISTS tenant_isolation_organization_members ON "organization_mem
 
 CREATE POLICY tenant_isolation_organizations_select ON "organizations"
   FOR SELECT
-  USING (id = current_setting('app.current_org_id', true)::uuid);
+  USING (id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organizations_update ON "organizations"
   FOR UPDATE
-  USING (id = current_setting('app.current_org_id', true)::uuid)
-  WITH CHECK (id = current_setting('app.current_org_id', true)::uuid);
+  USING (id = NULLIF(current_setting('app.current_org_id', true), '')::uuid)
+  WITH CHECK (id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organizations_delete ON "organizations"
   FOR DELETE
-  USING (id = current_setting('app.current_org_id', true)::uuid);
+  USING (id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organizations_insert ON "organizations"
   FOR INSERT
@@ -100,16 +130,16 @@ CREATE POLICY tenant_isolation_organizations_insert ON "organizations"
 
 CREATE POLICY tenant_isolation_organization_members_select ON "organization_members"
   FOR SELECT
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organization_members_update ON "organization_members"
   FOR UPDATE
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
-  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid)
+  WITH CHECK (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organization_members_delete ON "organization_members"
   FOR DELETE
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_organization_members_insert ON "organization_members"
   FOR INSERT
@@ -148,43 +178,43 @@ CREATE POLICY tenant_isolation_organization_members_insert ON "organization_memb
 -- unit tests; verify with a DB-backed integration test.
 CREATE POLICY self_membership_select ON organization_members
   FOR SELECT
-  USING (user_id = current_setting('app.current_user_id', true)::uuid);
+  USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid);
 
 CREATE POLICY self_membership_org_select ON organizations
   FOR SELECT
   USING (id IN (
     SELECT organization_id FROM organization_members
-    WHERE user_id = current_setting('app.current_user_id', true)::uuid
+    WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
   ));
 
 CREATE POLICY tenant_isolation_gstins ON "gstins"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_invoice_number_sequences ON "invoice_number_sequences"
   USING (gstin_id IN (
-    SELECT id FROM "gstins" WHERE organization_id = current_setting('app.current_org_id', true)::uuid
+    SELECT id FROM "gstins" WHERE organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid
   ));
 
 CREATE POLICY tenant_isolation_chart_of_accounts ON "chart_of_accounts"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_ledger_transactions ON "ledger_transactions"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_ledger_entries ON "ledger_entries"
   USING (transaction_id IN (
-    SELECT id FROM "ledger_transactions" WHERE organization_id = current_setting('app.current_org_id', true)::uuid
+    SELECT id FROM "ledger_transactions" WHERE organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid
   ));
 
 CREATE POLICY tenant_isolation_customers ON "customers"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_invoices ON "invoices"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+  USING (organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_invoice_line_items ON "invoice_line_items"
   USING (invoice_id IN (
-    SELECT id FROM "invoices" WHERE organization_id = current_setting('app.current_org_id', true)::uuid
+    SELECT id FROM "invoices" WHERE organization_id = NULLIF(current_setting('app.current_org_id', true), '')::uuid
   ));
 
 -- Add CHECK constraint to ledger_entries to ensure debit XOR credit
