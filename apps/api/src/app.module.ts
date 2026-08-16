@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -7,9 +8,19 @@ import { LedgerModule } from './ledger/ledger.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { TaxModule } from './tax/tax.module';
 import { GstnIntegrationModule } from './gstn-integration/gstn-integration.module';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
-  imports: [AuthModule, TenantsModule, LedgerModule, InvoicesModule, TaxModule, GstnIntegrationModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
+    TenantsModule,
+    LedgerModule,
+    InvoicesModule,
+    TaxModule,
+    GstnIntegrationModule,
+    CustomersModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

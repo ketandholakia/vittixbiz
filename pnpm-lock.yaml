@@ -22,18 +22,27 @@ importers:
       '@nestjs/jwt':
         specifier: ^11.0.2
         version: 11.0.2(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))
+      '@nestjs/passport':
+        specifier: ^11.0.5
+        version: 11.0.5(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(passport@0.7.0)
       '@nestjs/platform-express':
         specifier: ^11.0.1
         version: 11.2.0(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.0)(supports-color@8.1.1)
       '@vittixbiz/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.21.0)(pg@8.23.0)
+      passport:
+        specifier: ^0.7.0
+        version: 0.7.0
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
@@ -52,6 +61,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -68,6 +80,9 @@ importers:
       '@nestjs/testing':
         specifier: ^11.0.1
         version: 11.2.0(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.0)(@nestjs/platform-express@11.2.0)
+      '@types/bcrypt':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.6
@@ -1206,6 +1221,12 @@ packages:
     peerDependencies:
       '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
 
+  '@nestjs/passport@11.0.5':
+    resolution: {integrity: sha512-ulQX6mbjlws92PIM15Naes4F4p2JoxGnIJuUsdXQPT+Oo2sqQmENEZXM7eYuimocfHnKlcfZOuyzbA33LwUlOQ==}
+    peerDependencies:
+      '@nestjs/common': ^10.0.0 || ^11.0.0
+      passport: ^0.5.0 || ^0.6.0 || ^0.7.0
+
   '@nestjs/platform-express@11.2.0':
     resolution: {integrity: sha512-dfZd3wOiqkcAEjqrRXI67mIfbC6SDewLIAQJpkIqr/SRrSWlKNZX2GhMyCs6kKsRjfTXllogKePYwol2DdqV+g==}
     peerDependencies:
@@ -1304,6 +1325,9 @@ packages:
 
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
+
+  '@types/bcrypt@6.0.0':
+    resolution: {integrity: sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==}
 
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
@@ -1789,6 +1813,10 @@ packages:
     resolution: {integrity: sha512-JyJ954WzuIR8/FFzX0o5krdSTrBAkcCSRfWSleRsIHSWV+cZe2FI1PKggVkFke1hBldRs+LRxUczzE9iPmgZww==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  bcrypt@6.0.0:
+    resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
+    engines: {node: '>= 18'}
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -3050,8 +3078,16 @@ packages:
   node-abort-controller@3.1.1:
     resolution: {integrity: sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ==}
 
+  node-addon-api@8.9.2:
+    resolution: {integrity: sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==}
+    engines: {node: ^18 || ^20 || >= 21}
+
   node-emoji@1.11.0:
     resolution: {integrity: sha512-wo2DpQkQp7Sjm2A0cq+sN7EHKO6Sl0ctXeBdFZrL9T9+UywORbufTcTZxom8YqpLQt/FqNMUkOpkZrJVYSKD3A==}
+
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
+    hasBin: true
 
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
@@ -3137,6 +3173,10 @@ packages:
     resolution: {integrity: sha512-CB97UUvDKJde2V0KDWWB3lyf6PC3FaZP7YxZ2G8OAtn9p4HI9j9JLP9qjOGZFvyl8uwNT8qM+hGnz/n16NI7oA==}
     engines: {node: '>= 0.4.0'}
 
+  passport@0.7.0:
+    resolution: {integrity: sha512-cPLl+qZpSc+ireUvt+IzqbED1cHHkDoVYMo30jbJIdOOjQ1MQYZBPiNvmi8UM6lJuOpTPXJGZQk0DtC4y61MYQ==}
+    engines: {node: '>= 0.4.0'}
+
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
     engines: {node: '>=8'}
@@ -3163,6 +3203,9 @@ packages:
   path-type@4.0.0:
     resolution: {integrity: sha512-gDKb8aZMDeD/tZWs9P6+q0J9Mwkdl6xMV8TjnGP3qJVJ06bdMgkbBlLU8IdfOsIsFz2BW1rNVT3XuNEl8zPAvw==}
     engines: {node: '>=8'}
+
+  pause@0.0.1:
+    resolution: {integrity: sha512-KG8UEiEVkR3wGEb4m5yZkVCzigAD+cVEJck2CzYZO37ZGJfctvVptVO192MwrtPhzONn6go8ylnOdMhKqi4nfg==}
 
   pg-cloudflare@1.4.0:
     resolution: {integrity: sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==}
@@ -3765,6 +3808,10 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  utils-merge@1.0.1:
+    resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
+    engines: {node: '>= 0.4.0'}
 
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
@@ -4927,6 +4974,11 @@ snapshots:
       '@types/jsonwebtoken': 9.0.10
       jsonwebtoken: 9.0.3
 
+  '@nestjs/passport@11.0.5(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(passport@0.7.0)':
+    dependencies:
+      '@nestjs/common': 11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      passport: 0.7.0
+
   '@nestjs/platform-express@11.2.0(@nestjs/common@11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.0)(supports-color@8.1.1)':
     dependencies:
       '@nestjs/common': 11.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -5028,6 +5080,10 @@ snapshots:
   '@types/babel__traverse@7.28.0':
     dependencies:
       '@babel/types': 7.29.8
+
+  '@types/bcrypt@6.0.0':
+    dependencies:
+      '@types/node': 24.13.3
 
   '@types/body-parser@1.19.6':
     dependencies:
@@ -5554,6 +5610,11 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.14: {}
+
+  bcrypt@6.0.0:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
 
   bl@4.1.0:
     dependencies:
@@ -6950,9 +7011,13 @@ snapshots:
 
   node-abort-controller@3.1.1: {}
 
+  node-addon-api@8.9.2: {}
+
   node-emoji@1.11.0:
     dependencies:
       lodash: 4.18.1
+
+  node-gyp-build@4.8.4: {}
 
   node-int64@0.4.0: {}
 
@@ -7041,6 +7106,12 @@ snapshots:
 
   passport-strategy@1.0.0: {}
 
+  passport@0.7.0:
+    dependencies:
+      passport-strategy: 1.0.0
+      pause: 0.0.1
+      utils-merge: 1.0.1
+
   path-exists@4.0.0: {}
 
   path-is-absolute@1.0.1: {}
@@ -7060,6 +7131,8 @@ snapshots:
   path-to-regexp@8.4.2: {}
 
   path-type@4.0.0: {}
+
+  pause@0.0.1: {}
 
   pg-cloudflare@1.4.0:
     optional: true
@@ -7659,6 +7732,8 @@ snapshots:
       punycode: 2.3.1
 
   util-deprecate@1.0.2: {}
+
+  utils-merge@1.0.1: {}
 
   v8-compile-cache-lib@3.0.1: {}
 

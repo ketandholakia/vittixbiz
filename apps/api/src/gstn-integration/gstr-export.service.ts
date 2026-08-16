@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../database/db';
+import type { DbTransaction } from '../database/db';
 import {
   customers,
   gstins,
@@ -18,6 +18,7 @@ import {
  */
 export class GstrExportService {
   static async generateGstr1Json(
+    tx: DbTransaction,
     organizationId: string,
     gstinId: string,
     financialYear: string, // e.g. "2026-27"
@@ -31,7 +32,7 @@ export class GstrExportService {
     }
     const calYear = month >= 4 ? fyStart : fyStart + 1;
 
-    const invoiceRows = await db
+    const invoiceRows = await tx
       .select()
       .from(invoices)
       .where(
@@ -48,7 +49,7 @@ export class GstrExportService {
       return d.getUTCFullYear() === calYear && d.getUTCMonth() + 1 === month;
     });
 
-    const [gstin] = await db
+    const [gstin] = await tx
       .select()
       .from(gstins)
       .where(eq(gstins.id, gstinId));
@@ -69,11 +70,11 @@ export class GstrExportService {
     const customerIds = [...new Set(inPeriod.map((inv) => inv.customerId))];
     const invoiceIds = inPeriod.map((inv) => inv.id);
 
-    const customerRows = await db
+    const customerRows = await tx
       .select()
       .from(customers)
       .where(inArray(customers.id, customerIds));
-    const lineRows = await db
+    const lineRows = await tx
       .select()
       .from(invoiceLineItems)
       .where(inArray(invoiceLineItems.invoiceId, invoiceIds));

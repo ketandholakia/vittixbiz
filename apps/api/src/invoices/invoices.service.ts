@@ -359,4 +359,48 @@ export class InvoicesService {
 
     return { ledgerTransactionId };
   }
+
+  /** Lists invoices for an organization, optionally filtered by status. */
+  static async listInvoices(
+    tx: DbTransaction,
+    organizationId: string,
+    status?: typeof invoices.$inferSelect.status
+  ): Promise<typeof invoices.$inferSelect[]> {
+    const conditions = [eq(invoices.organizationId, organizationId)];
+    if (status) {
+      conditions.push(eq(invoices.status, status));
+    }
+    return tx.select().from(invoices).where(and(...conditions));
+  }
+
+  /**
+   * Returns a single invoice (with its line items) scoped to the
+   * organization, or null if it does not exist / belongs to another tenant.
+   */
+  static async getInvoiceWithLines(
+    tx: DbTransaction,
+    organizationId: string,
+    invoiceId: string
+  ): Promise<{
+    invoice: typeof invoices.$inferSelect;
+    lines: typeof invoiceLineItems.$inferSelect[];
+  } | null> {
+    const [invoice] = await tx
+      .select()
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.id, invoiceId),
+          eq(invoices.organizationId, organizationId)
+        )
+      );
+    if (!invoice) {
+      return null;
+    }
+    const lines = await tx
+      .select()
+      .from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, invoice.id));
+    return { invoice, lines };
+  }
 }

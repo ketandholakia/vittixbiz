@@ -1,14 +1,13 @@
-jest.mock('../database/db', () => {
-  const mockDb = {
+import { GstrExportService } from './gstr-export.service';
+
+function createMockTx() {
+  const mockTx = {
     select: jest.fn().mockReturnThis(),
     from: jest.fn().mockReturnThis(),
     where: jest.fn().mockResolvedValue([]),
   };
-  return { db: mockDb };
-});
-
-import { db } from '../database/db';
-import { GstrExportService } from './gstr-export.service';
+  return mockTx as any;
+}
 
 const gstinRow = { id: 'gstin-1', gstin: '27AACCM0000A1Z1' };
 
@@ -119,15 +118,12 @@ const lineC = {
   cessAmount: '0.00',
 };
 
-const mockDb = db as unknown as {
-  select: jest.Mock;
-  from: jest.Mock;
-  where: jest.Mock;
-};
-
-const mockWhere = mockDb.where;
+let mockTx: any;
+let mockWhere: jest.Mock;
 
 beforeEach(() => {
+  mockTx = createMockTx();
+  mockWhere = mockTx.where;
   jest.clearAllMocks();
   mockWhere.mockResolvedValue([]);
 });
@@ -138,7 +134,7 @@ describe('GstrExportService', () => {
       .mockResolvedValueOnce([]) // invoices
       .mockResolvedValueOnce([gstinRow]); // gstins
 
-    const result = await GstrExportService.generateGstr1Json('org-1', 'gstin-1', '2026-27', 7);
+    const result = await GstrExportService.generateGstr1Json(mockTx, 'org-1', 'gstin-1', '2026-27', 7);
 
     expect(result).toEqual({
       gstin: '27AACCM0000A1Z1',
@@ -154,7 +150,7 @@ describe('GstrExportService', () => {
       .mockResolvedValueOnce([customerA, customerB, customerC]) // customers
       .mockResolvedValueOnce([lineA, lineB, lineC]); // invoice line items
 
-    const result = await GstrExportService.generateGstr1Json('org-1', 'gstin-1', '2026-27', 7);
+    const result = await GstrExportService.generateGstr1Json(mockTx, 'org-1', 'gstin-1', '2026-27', 7);
 
     expect(result).toEqual({
       gstin: '27AACCM0000A1Z1',
@@ -197,7 +193,7 @@ describe('GstrExportService', () => {
       .mockResolvedValueOnce([invoiceA]) // invoices
       .mockResolvedValueOnce([gstinRow]); // gstins
 
-    const result = await GstrExportService.generateGstr1Json('org-1', 'gstin-1', '2026-27', 1);
+    const result = await GstrExportService.generateGstr1Json(mockTx, 'org-1', 'gstin-1', '2026-27', 1);
 
     expect(result).toEqual({
       gstin: '27AACCM0000A1Z1',
