@@ -5,7 +5,7 @@ VittixBiz is a fresh GST invoicing/accounting system for the Indian SMB market.
 ## Monorepo Structure
 
 - **apps/api**: NestJS backend
-- **apps/web**: Next.js frontend (placeholder for phase 2)
+- **apps/web**: Next.js 15 frontend (App Router, Tailwind CSS, Zod forms)
 - **packages/shared-types**: Shared Zod schemas, TypeScript interfaces, and Money utilities.
 - **packages/config**: Shared configurations (ESLint, TSConfig).
 
@@ -38,6 +38,33 @@ VittixBiz is a fresh GST invoicing/accounting system for the Indian SMB market.
    cd apps/api
    pnpm start:dev
    ```
+
+## Web (apps/web)
+
+Next.js 15 (App Router) + Tailwind CSS + Zod. Talks to the NestJS API via a
+typed fetch client (`src/lib/api-client.ts`).
+
+```bash
+cd apps/web
+cp .env.example .env.local   # set NEXT_PUBLIC_API_URL, NEXT_PUBLIC_ORG_ID, NEXT_PUBLIC_GSTIN_ID
+pnpm dev
+```
+
+Build check: `pnpm --filter web build`.
+
+## Known Gaps (Web)
+
+- **JWT in `localStorage`**: the access token is stored client-side
+  (`localStorage`) so XSS can read it. This is a starting point only; before
+  real deployment it must move to an httpOnly cookie set by a Server Action.
+- **Org id from env**: there is no "list my organizations" endpoint yet, so
+  `NEXT_PUBLIC_ORG_ID` supplies the tenant id. Replace with a real membership
+  selector once the backend exposes it.
+- **GSTIN id from env**: there is no list-GSTINs endpoint yet, so
+  `NEXT_PUBLIC_GSTIN_ID` supplies the issuing branch for invoice creation.
+  Replace with a real branch selector once the backend exposes org GSTINs.
+- **No chart-of-accounts / GSTIN management UI yet** — blocked on the backend
+  seed/creation work that is still pending.
 
 ## Security — Tenant Isolation (RLS)
 
