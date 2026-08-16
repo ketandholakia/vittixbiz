@@ -9,6 +9,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { TaxModule } from './tax/tax.module';
 import { GstnIntegrationModule } from './gstn-integration/gstn-integration.module';
 import { CustomersModule } from './customers/customers.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CustomersModule } from './customers/customers.module';
     TaxModule,
     GstnIntegrationModule,
     CustomersModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

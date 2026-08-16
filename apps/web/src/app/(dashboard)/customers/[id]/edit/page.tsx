@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { ApiError, customersApi } from '@/lib/api-client';
-import { getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import type { Customer } from '@/lib/api-types';
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody } from '@/components/ui/card';
@@ -15,13 +15,15 @@ export default function EditCustomerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { selectedOrg } = useOrg();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedOrg) return;
     let cancelled = false;
     customersApi
-      .get(getOrgId(), id)
+      .get(selectedOrg.id, id)
       .then((c) => {
         if (!cancelled) setCustomer(c);
       })
@@ -35,7 +37,7 @@ export default function EditCustomerPage({
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [selectedOrg, id]);
 
   return (
     <div className="space-y-6">

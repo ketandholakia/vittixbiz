@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { ApiError, customersApi } from '@/lib/api-client';
-import { getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import type { CreateCustomerInput, Customer } from '@/lib/api-types';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,7 @@ function toCreateInput(values: Values): CreateCustomerInput {
 
 export function CustomerForm({ customer }: { customer?: Customer }) {
   const router = useRouter();
+  const { selectedOrg } = useOrg();
   const isEdit = Boolean(customer);
 
   const [values, setValues] = useState<Values>(() => ({
@@ -116,9 +117,8 @@ export function CustomerForm({ customer }: { customer?: Customer }) {
 
     const input = toCreateInput(parsed.data);
     try {
-      // getOrgId() is env-config (NEXT_PUBLIC_ORG_ID) and throws when unset;
-      // called here (not during render) so static prerendering stays valid.
-      const orgId = getOrgId();
+      if (!selectedOrg) return;
+      const orgId = selectedOrg.id;
       if (isEdit && customer) {
         await customersApi.update(orgId, customer.id, input);
       } else {

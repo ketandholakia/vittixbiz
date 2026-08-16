@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { ApiError, customersApi, invoicesApi, openInvoicePdf } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
-import { getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import type {
   Customer,
   EinvoiceResponse,
@@ -52,6 +52,7 @@ export default function InvoiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { selectedOrg } = useOrg();
 
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -62,10 +63,9 @@ export default function InvoiceDetailPage({
   const [einvoiceResult, setEinvoiceResult] = useState<EinvoiceResponse | null>(null);
 
   async function load() {
+    if (!selectedOrg) return;
     setError(null);
-    // getOrgId() is env-config (NEXT_PUBLIC_ORG_ID) and throws when unset;
-    // called here (not during render) so static prerendering stays valid.
-    const orgId = getOrgId();
+    const orgId = selectedOrg.id;
     try {
       const [d, customers] = await Promise.all([
         invoicesApi.get(orgId, id),
@@ -84,12 +84,14 @@ export default function InvoiceDetailPage({
 
   useEffect(() => {
     load();
-    // load() is stable in practice for this page; only the id changes.
+    // load() reads the current org from context; only the id changes across
+    // navigations within this page instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, selectedOrg]);
 
   async function handleIssue() {
-    const orgId = getOrgId();
+    if (!selectedOrg) return;
+    const orgId = selectedOrg.id;
     setBusy('issue');
     setActionError(null);
     setActionSuccess(null);
@@ -107,7 +109,8 @@ export default function InvoiceDetailPage({
   }
 
   async function handleEinvoice() {
-    const orgId = getOrgId();
+    if (!selectedOrg) return;
+    const orgId = selectedOrg.id;
     setBusy('einvoice');
     setActionError(null);
     setActionSuccess(null);
@@ -132,7 +135,8 @@ export default function InvoiceDetailPage({
   }
 
   async function handlePdf() {
-    const orgId = getOrgId();
+    if (!selectedOrg) return;
+    const orgId = selectedOrg.id;
     setBusy('pdf');
     setActionError(null);
     try {

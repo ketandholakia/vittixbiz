@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, customersApi } from '@/lib/api-client';
-import { getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import type { Customer } from '@/lib/api-types';
 import { Alert } from '@/components/ui/alert';
 import { ButtonLink } from '@/components/ui/button';
@@ -19,13 +19,15 @@ import {
 } from '@/components/ui/table';
 
 export default function CustomersPage() {
+  const { selectedOrg } = useOrg();
   const [customers, setCustomers] = useState<Customer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedOrg) return;
     let cancelled = false;
     customersApi
-      .list(getOrgId())
+      .list(selectedOrg.id)
       .then((rows) => {
         if (!cancelled) setCustomers(rows);
       })
@@ -39,7 +41,7 @@ export default function CustomersPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedOrg]);
 
   return (
     <div className="space-y-6">

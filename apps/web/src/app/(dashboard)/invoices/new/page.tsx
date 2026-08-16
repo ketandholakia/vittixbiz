@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { ApiError, customersApi, invoicesApi } from '@/lib/api-client';
-import { getGstinId, getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import { todayLocal } from '@/lib/format';
 import type { Customer } from '@/lib/api-types';
 import { Alert } from '@/components/ui/alert';
@@ -82,6 +82,7 @@ function collectErrors(error: z.ZodError): {
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const { selectedOrg, gstins, selectedGstin, selectGstin } = useOrg();
 
   const [customers, setCustomers] = useState<Customer[] | null>(null);
   const [customersError, setCustomersError] = useState<string | null>(null);
@@ -100,8 +101,9 @@ export default function NewInvoicePage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!selectedOrg) return;
     let cancelled = false;
-    const orgId = getOrgId();
+    const orgId = selectedOrg.id;
     customersApi
       .list(orgId)
       .then((rows) => {
@@ -117,9 +119,7 @@ export default function NewInvoicePage() {
     return () => {
       cancelled = true;
     };
-    // orgId is a build-time env constant; load the customer list once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedOrg]);
 
   function updateHeader(
     field: 'customerId' | 'invoiceDate' | 'dueDate' | 'notes',
@@ -171,10 +171,16 @@ export default function NewInvoicePage() {
     setHeaderErrors({});
     setLineErrors({});
     setLinesMessage(null);
+
+    if (!selectedOrg || !selectedGstin) {
+      setFormError('Select an organization and a GSTIN before creating an invoice.');
+      setSubmitting(false);
+      return;
+    }
     setSubmitting(true);
 
     const input = {
-      gstinId: getGstinId(),
+      gstinId: selectedGstin.id,
       customerId: parsed.data.customerId,
       invoiceDate: new Date(`${parsed.data.invoiceDate}T00:00:00`).toISOString(),
       dueDate: parsed.data.dueDate
@@ -192,7 +198,7 @@ export default function NewInvoicePage() {
     };
 
     try {
-      const orgId = getOrgId();
+      const orgId = selectedOrg.id;
       const created = await invoicesApi.create(orgId, input);
       router.push(`/invoices/${created.invoiceId}`);
       router.refresh();
@@ -217,6 +223,33 @@ export default function NewInvoicePage() {
         <CardBody>
           <form onSubmit={handleSubmit} className="space-y-6">
             {formError ? <Alert kind="error">{formError}</Alert> : null}
+
+            {!selectedGstin && gstins.length === 0 ? (
+              <Alert kind="error">
+                This organization has no GSTIN yet. A GSTIN must be added
+                before invoices can be created.
+              </Alert>
+            ) : gstins.length > 1 ? (
+              <Field label="Issuing GSTIN" htmlFor="gstinId">
+                <Select
+                  id="gstinId"
+                  value={selectedGstin?.id ?? ''}
+                  onChange={(e) => selectGstin(e.target.value)}
+                >
+                  {gstins.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.gstin} — {g.branchName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : selectedGstin ? (
+              <Field label="Issuing GSTIN">
+                <p className="text-sm font-medium text-slate-900">
+                  {selectedGstin.gstin} — {selectedGstin.branchName}
+                </p>
+              </Field>
+            ) : null}
 
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-3">
               <Field
@@ -402,7 +435,7 @@ export default function NewInvoicePage() {
               <Button type="button" variant="secondary" onClick={() => router.push('/invoices')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || !selectedGstin}>
                 {submitting ? 'Creating…' : 'Create draft invoice'}
               </Button>
             </div>

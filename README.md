@@ -46,7 +46,7 @@ typed fetch client (`src/lib/api-client.ts`).
 
 ```bash
 cd apps/web
-cp .env.example .env.local   # set NEXT_PUBLIC_API_URL, NEXT_PUBLIC_ORG_ID, NEXT_PUBLIC_GSTIN_ID
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL (org/GSTIN ids come from the API now)
 pnpm dev
 ```
 
@@ -57,12 +57,16 @@ Build check: `pnpm --filter web build`.
 - **JWT in `localStorage`**: the access token is stored client-side
   (`localStorage`) so XSS can read it. This is a starting point only; before
   real deployment it must move to an httpOnly cookie set by a Server Action.
-- **Org id from env**: there is no "list my organizations" endpoint yet, so
-  `NEXT_PUBLIC_ORG_ID` supplies the tenant id. Replace with a real membership
-  selector once the backend exposes it.
-- **GSTIN id from env**: there is no list-GSTINs endpoint yet, so
-  `NEXT_PUBLIC_GSTIN_ID` supplies the issuing branch for invoice creation.
-  Replace with a real branch selector once the backend exposes org GSTINs.
+- **Org/GSTIN selection is localStorage-backed**: the chosen org and GSTIN
+  ids are persisted in `localStorage`. That's fine (they're tenant ids, not
+  credentials), and the choice is now discovered from the API
+  (`GET /me/organizations`, `GET /organizations/:orgId/gstins`), but there is
+  no org-switcher UI beyond a header dropdown and no GSTIN management UI.
+- **GSTIN creation is out of scope**: org creation
+  (`POST /organizations`) deliberately does NOT create a GSTIN — GSTIN
+  validation and state-code derivation are a separate, larger piece of work
+  (backend follow-up). Until then, invoice creation shows a clear message
+  when the org has no GSTIN.
 - **No chart-of-accounts / GSTIN management UI yet** — blocked on the backend
   seed/creation work that is still pending.
 

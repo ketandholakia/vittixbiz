@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, customersApi, invoicesApi } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
-import { getOrgId } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import type { Customer, Invoice, InvoiceStatus } from '@/lib/api-types';
 import { Alert } from '@/components/ui/alert';
 import { ButtonLink } from '@/components/ui/button';
@@ -31,14 +31,16 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export default function InvoicesPage() {
+  const { selectedOrg } = useOrg();
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [customers, setCustomers] = useState<Customer[] | null>(null);
   const [status, setStatus] = useState('all');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!selectedOrg) return;
     let cancelled = false;
-    const orgId = getOrgId();
+    const orgId = selectedOrg.id;
     Promise.all([invoicesApi.list(orgId, status), customersApi.list(orgId)])
       .then(([invoiceRows, customerRows]) => {
         if (!cancelled) {
@@ -56,7 +58,7 @@ export default function InvoicesPage() {
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [selectedOrg, status]);
 
   function customerName(invoice: Invoice): string {
     if (!customers) return '—';
