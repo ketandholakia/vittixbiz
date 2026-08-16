@@ -46,8 +46,74 @@ ALTER TABLE "invoice_line_items" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "invoice_line_items" FORCE ROW LEVEL SECURITY;
 
 -- Create policies for tenant isolation
-CREATE POLICY tenant_isolation_organizations ON "organizations"
+-- ── organizations & organization_members: per-command policies ──────────────
+--
+-- These two tables are the ONLY ones written before any org context exists:
+-- POST /organizations creates the org AND the creator's membership, and at
+-- that moment there is no `app.current_org_id` to set (the org does not exist
+-- yet, so withTenantTransaction is impossible — it would be chicken-and-egg).
+-- Every other tenant table is only ever written inside an existing org's
+-- withTenantTransaction, so their single combined policy below works: the
+-- caller always has context, and RLS is what stops one tenant from touching
+-- another's rows. Only these two tables need the split.
+--
+-- The split per command:
+--   SELECT / UPDATE / DELETE keep the strict `= current_setting(...)` filter
+--   — that is the tenant isolation that matters for rows that already exist,
+--   and it also scopes reads during org-scoped flows (e.g. the membership
+--   check in TenantContextGuard runs with the org's context active).
+--   INSERT uses `WITH CHECK (true)`: creation is gated at the application
+--   layer by JwtAuthGuard (any authenticated user may create an org), so RLS
+--   has nothing to isolate yet and cannot require a context that cannot
+--   exist. WITHOUT this split, the combined policy's USING expression is the
+--   WITH CHECK for INSERT, and no new org could ever be created.
+--
+-- CRITICAL POSTGRES BEHAVIOR (this bit us in OrganizationsService.create):
+-- even once the INSERT policy permits a write, a `.returning()` on the new
+-- row FAILS unless the row also satisfies the table's SELECT policy —
+-- RETURNING reads the row back and is subject to SELECT RLS. The service
+-- therefore pre-generates the org id and runs
+-- `set_config('app.current_org_id', <new id>)` BEFORE the inserts, so the
+-- new rows pass both the INSERT and the SELECT policies at RETURNING time.
+-- This is documented Postgres behavior, not a Drizzle quirk, and only shows
+-- up against a real server (a non-superuser role + FORCE RLS), so it cannot
+-- be caught by mocked unit tests.
+DROP POLICY IF EXISTS tenant_isolation_organizations ON "organizations";
+DROP POLICY IF EXISTS tenant_isolation_organization_members ON "organization_members";
+
+CREATE POLICY tenant_isolation_organizations_select ON "organizations"
+  FOR SELECT
   USING (id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organizations_update ON "organizations"
+  FOR UPDATE
+  USING (id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organizations_delete ON "organizations"
+  FOR DELETE
+  USING (id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organizations_insert ON "organizations"
+  FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY tenant_isolation_organization_members_select ON "organization_members"
+  FOR SELECT
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organization_members_update ON "organization_members"
+  FOR UPDATE
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organization_members_delete ON "organization_members"
+  FOR DELETE
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_organization_members_insert ON "organization_members"
+  FOR INSERT
+  WITH CHECK (true);
 
 CREATE POLICY tenant_isolation_gstins ON "gstins"
   USING (organization_id = current_setting('app.current_org_id', true)::uuid);
@@ -56,9 +122,6 @@ CREATE POLICY tenant_isolation_invoice_number_sequences ON "invoice_number_seque
   USING (gstin_id IN (
     SELECT id FROM "gstins" WHERE organization_id = current_setting('app.current_org_id', true)::uuid
   ));
-
-CREATE POLICY tenant_isolation_organization_members ON "organization_members"
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 CREATE POLICY tenant_isolation_chart_of_accounts ON "chart_of_accounts"
   USING (organization_id = current_setting('app.current_org_id', true)::uuid);

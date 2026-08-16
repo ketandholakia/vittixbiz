@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db, DbTransaction } from '../database/db';
 import { gstins, organizations, organizationMembers } from '../database/schema';
 import { CreateOrganizationDto } from './organizations.dto';
@@ -42,12 +43,30 @@ export class OrganizationsService {
    * Follow-up (out of scope here): org creation does NOT create a GSTIN —
    * GSTIN validation and state-code derivation from the GSTIN format are a
    * separate, larger piece of work.
+   *
+   * RLS interaction (see the per-command policy split in rls_and_checks.sql):
+   * the INSERT policies on organizations / organization_members are
+   * `WITH CHECK (true)`, so the write itself is allowed without any context.
+   * BUT the `.returning()` below reads the new row back and is therefore
+   * subject to the SELECT policy — which requires `app.current_org_id` to
+   * equal the row's id. So the id is pre-generated here and the context is
+   * set to it BEFORE the insert. The membership insert has NO `.returning()`
+   * (no SELECT-policy readback), so it only needs the WITH CHECK (true)
+   * INSERT policy — its `organization_id` already matches the context set
+   * above regardless.
    */
   async create(input: CreateOrganizationDto, userId: string) {
+    const organizationId = randomUUID();
+
     return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('app.current_org_id', ${organizationId}, true)`
+      );
+
       const [org] = await tx
         .insert(organizations)
         .values({
+          id: organizationId,
           legalName: input.legalName,
           tradeName: input.tradeName ?? null,
           panNumber: input.panNumber ?? null,
@@ -61,7 +80,7 @@ export class OrganizationsService {
         });
 
       await tx.insert(organizationMembers).values({
-        organizationId: org.id,
+        organizationId,
         userId,
         role: 'owner',
       });
